@@ -1,88 +1,100 @@
 #!/bin/env python
-import pandas as pd
 import re
+
+import pandas as pd
 from bs4 import BeautifulSoup
 from io import StringIO
+
 pd.set_option('display.min_rows', 20)
+pd.set_option('display.max_rows', None)
+def header_print(string):
+    """Make a nice box around a single line of text"""
+    print("\n/" + "*" * (len(string) + 2) + "\\")
+    print("| " + string + " |")
+    print("\\" + "*" * (len(string) + 2) + "/\n")
 
 def convert_currency(value):
+    """Converts a currency string to a float."""
     try:
         value = str(value)
-        value = re.sub(r'[$,]','', value)  # Remove $, €, and commas
+        value = re.sub(r'[$,]', '', value)  # Remove '$' and commas
         return float(value)
     except (ValueError, TypeError):
-        return None  # Or handle the error as needed
+        return None
 
-with open("lottery-main.html","r") as f:
+def calculate_expected_value(df):
+    """Calculates the expected value from a DataFrame of lottery data."""
+    ev = 0
+    for row in df.values:
+        ev += row[0] / row[1]
+    return ev
 
-    html = f.read()
-    soup = BeautifulSoup(html, "html.parser")
+def calculate_adjusted_expected_value(df, total_tickets):
+    """Calculates the adjusted expected value based on remaining prizes."""
+    aev = 0
+    original_count = 0
+    current_count = 0
+    for row in df.values:
+        original_count += row[2]
+        current_count += row[3]
+
+    extrapolated_total = total_tickets * (current_count / original_count)
+    for row in df.values:
+        aev += row[0] * (row[3] / extrapolated_total)
+    return aev
+
+def main():
+    """Parses lottery data, calculates expected values, and prints results."""
+    with open("lottery-main.html", "r") as f:
+        html = f.read()
+        soup = BeautifulSoup(html, "html.parser")
 
     results = []
-
     for game in soup.find_all(class_=re.compile("box cloudfx databox price_.+")):
-
-        # Get the value of the ticket from the class name
+        # Extract ticket value and game name
         val = int(game['class'][3].split('_')[1])
+        name = game.find(class_="gamename").text
 
-        # Lets get the game name for our output
-        name = BeautifulSoup.find(game, class_="gamename").text
-
-        print("N: {}, V: {}".format(name,val))
-
+        # Parse table data into a DataFrame
         df = pd.read_html(
             StringIO(str(game)),
             header=1,
-            converters={
-                'Value': convert_currency
-            }
+            converters={'Value': convert_currency}
         )[0].dropna()
 
-        print(df)
-
-        # Calculate original expected value
-        oev = 0
-        for row in df.values:
-            oev += row[0] / row[1]
-
+        # Calculate expected values
+        oev = calculate_expected_value(df)
         odv = oev / val
 
         # Calculate adjusted expected value
-
-        # first we need the actual ticket counts. Multiply odds in 1 * total. We can just select the first row because they all
-        # add up the same
-        tot = df.values[0][1] * df.values[0][2]
-
-        # Before we calculate the odds, we have to estimate how many tickets remain. We can estimate this from the number of prizes remaining of the total
-        original_count = 0
-        current_count = 0
-        for row in df.values:
-            original_count += row[2]
-            current_count += row[3]
-
-        extrapolated_total = tot * (current_count / original_count)        
-
-        # Now we can get the expected value
-        aev = 0
-
-        for row in df.values:
-            aev += row[0] * (row[3]/extrapolated_total)
-
+        total_tickets = df.values[0][1] * df.values[0][2]  # Calculate total tickets
+        aev = calculate_adjusted_expected_value(df, total_tickets)
         adv = aev / val
 
-        results.append({"Actual": val, "Orig. Expected": oev, "Orig. Ratio": odv, "Adj. Expected": aev, "Adj. Ratio": adv, "Name": name})
+        results.append({
+            "Actual": val,
+            "Orig. Expected": oev,
+            "Orig. Ratio": odv,
+            "Adj. Expected": aev,
+            "Adj. Ratio": adv,
+            "Name": name
+        })
 
-    print("\n" + "#" * 50 + "\n")
-    # Print the results
+    header_print("Just the data")
+    res_df = pd.DataFrame(results)
+    print(res_df)
 
-    print("---\nSorted by best current ratio\n---")
+    header_print("Sorted by best current ratio")
     res_df = pd.DataFrame(results).sort_values("Adj. Ratio", ascending=False)
     print(res_df)
 
-    print("---\nSorted by best original ratio\n---")
+    header_print("Sorted by best original ratio")
     res_df = pd.DataFrame(results).sort_values("Orig. Ratio", ascending=False)
     print(res_df)
 
-    print("---\nSorted by highest expected value\n---")
+    header_print("Sorted by highest expected value")
     res_df = pd.DataFrame(results).sort_values("Orig. Expected", ascending=False)
     print(res_df)
+
+if __name__ == "__main__":
+    main()
