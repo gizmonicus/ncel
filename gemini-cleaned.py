@@ -61,9 +61,6 @@ def main():
             converters={'Value': convert_currency}
         )[0].dropna()
 
-        print(name)
-        print(df)
-
         # Calculate expected values
         oev = calculate_expected_value(df)
         odv = oev / val
