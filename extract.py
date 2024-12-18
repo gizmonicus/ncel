@@ -54,6 +54,7 @@ def main():
         # Extract ticket value and game name
         val = int(game['class'][3].split('_')[1])
         name = game.find(class_="gamename").text
+        number = game.find(class_="gamenumber").text.split(':')[1].lstrip()
 
         # Parse table data into a DataFrame
         df = pd.read_html(
@@ -77,23 +78,11 @@ def main():
             "Orig. Ratio": odv,
             "Adj. Expected": aev,
             "Adj. Ratio": adv,
-            "Name": name
+            "Name": "{} ({})".format(name,number)
         })
-
-    header_print("Just the data")
-    res_df = pd.DataFrame(results)
-    print(res_df)
 
     header_print("Sorted by best current ratio")
     res_df = pd.DataFrame(results).sort_values("Adj. Ratio", ascending=False)
-    print(res_df)
-
-    header_print("Sorted by best original ratio")
-    res_df = pd.DataFrame(results).sort_values("Orig. Ratio", ascending=False)
-    print(res_df)
-
-    header_print("Sorted by highest expected value")
-    res_df = pd.DataFrame(results).sort_values("Orig. Expected", ascending=False)
     print(res_df)
 
 if __name__ == "__main__":
