@@ -23,25 +23,7 @@ def convert_currency(value):
         return None
 
 def calculate_expected_value(df):
-    """Calculates the expected value from a DataFrame of lottery data."""
-    ev = 0
-    for row in df.values:
-        ev += row[0] / row[1]
     return ev
-
-def calculate_adjusted_expected_value(df, total_tickets):
-    """Calculates the adjusted expected value based on remaining prizes."""
-    aev = 0
-    original_count = 0
-    current_count = 0
-    for row in df.values:
-        original_count += row[2]
-        current_count += row[3]
-
-    extrapolated_total = total_tickets * (current_count / original_count)
-    for row in df.values:
-        aev += row[0] * (row[3] / extrapolated_total)
-    return aev
 
 def main():
     """Parses lottery data, calculates expected values, and prints results."""
@@ -64,20 +46,40 @@ def main():
         )[0].dropna()
 
         # Calculate expected values
-        oev = calculate_expected_value(df)
-        odv = oev / val
+        oev = 0
+        for row in df.values:
+            oev += row[0] / row[1]
+
+        # Calculate original expected value ratio
+        odr = oev / val
 
         # Calculate adjusted expected value
         total_tickets = df.values[0][1] * df.values[0][2]  # Calculate total tickets
-        aev = calculate_adjusted_expected_value(df, total_tickets)
-        adv = aev / val
+
+        # Calculate the adjusted expected value based on remaining prizes.
+        aev = 0
+        original_count = 0
+        current_count = 0
+        for row in df.values:
+            original_count += row[2]
+            current_count += row[3]
+
+        extrapolated_total = total_tickets * (current_count / original_count)
+        for row in df.values:
+            aev += row[0] * (row[3] / extrapolated_total)
+
+        # Calculate the adjusted ratio
+        adr = aev / val
+
+        pc = aev / oev
 
         results.append({
-            "Actual": val,
-            "Orig. Expected": oev,
-            "Orig. Ratio": odv,
-            "Adj. Expected": aev,
-            "Adj. Ratio": adv,
+            "Actual": "${:0.0f}".format(val),
+            "Orig. Expected": "${:0.2f}".format(oev),
+            "Orig. Ratio": "{:0.3f}".format(odr),
+            "Adj. Expected": "${:0.2f}".format(aev),
+            "Adj. Ratio": "{:0.3f}".format(adr),
+            "Pct. Chg.": "{:0.1f}%".format(pc * 100),
             "Name": "{} ({})".format(name,number)
         })
 
