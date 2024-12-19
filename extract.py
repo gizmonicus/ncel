@@ -9,9 +9,9 @@ pd.set_option('display.min_rows', 20)
 pd.set_option('display.max_rows', None)
 def header_print(string):
     """Make a nice box around a single line of text"""
-    print("\n/" + "*" * (len(string) + 2) + "\\")
+    print("\n+" + "-" * (len(string) + 2) + "+")
     print("| " + string + " |")
-    print("\\" + "*" * (len(string) + 2) + "/\n")
+    print("+" + "-" * (len(string) + 2) + "+")
 
 def convert_currency(value):
     """Converts a currency string to a float."""
@@ -21,9 +21,6 @@ def convert_currency(value):
         return float(value)
     except (ValueError, TypeError):
         return None
-
-def calculate_expected_value(df):
-    return ev
 
 def main():
     """Parses lottery data, calculates expected values, and prints results."""
@@ -38,6 +35,9 @@ def main():
         name = game.find(class_="gamename").text
         number = game.find(class_="gamenumber").text.split(':')[1].lstrip()
 
+        # Start printing individual game information
+        header_print("{} ({}) - ${:0.0f}".format(name, number, val))
+
         # Parse table data into a DataFrame
         df = pd.read_html(
             StringIO(str(game)),
@@ -45,28 +45,42 @@ def main():
             converters={'Value': convert_currency}
         )[0].dropna()
 
+        # Calculate total number of tickets
+        total_tickets = df.values[0][1] * df.values[0][2]  # Calculate total tickets
+
         # Calculate expected values
+        print("\nPrizes and expected value\n=========================")
+
         oev = 0
+        original_count = 0
+        current_count = 0
+
+        print("Original E[x]\n-------------")
+
         for row in df.values:
-            oev += row[0] / row[1]
+            e = row[0] / row[1]
+            original_count += row[2]
+            current_count += row[3]
+            print("${:,.0f} (1:{:.0f}) -> ${:.2f}".format(row[0],row[1],e))
+            oev += e
+
+        # Calculate extrapolated number of tickets remaining
+        extrapolated_total = total_tickets * (current_count / original_count)
 
         # Calculate original expected value ratio
         odr = oev / val
 
-        # Calculate adjusted expected value
-        total_tickets = df.values[0][1] * df.values[0][2]  # Calculate total tickets
-
         # Calculate the adjusted expected value based on remaining prizes.
         aev = 0
-        original_count = 0
-        current_count = 0
-        for row in df.values:
-            original_count += row[2]
-            current_count += row[3]
 
-        extrapolated_total = total_tickets * (current_count / original_count)
+        print("\nAdjusted E[x]\n-------------")
         for row in df.values:
-            aev += row[0] * (row[3] / extrapolated_total)
+            e = row[0] * (row[3] / extrapolated_total)
+            aev += e
+            if row[3] == 0:
+                print("${:,.0f} (INF) -> ${:.2f}".format(row[0],e))
+            else:
+                print("${:,.0f} (1:{:.0f}) -> ${:.2f}".format(row[0],extrapolated_total / row[3],e))
 
         # Calculate the adjusted ratio
         adr = aev / val
@@ -75,15 +89,17 @@ def main():
 
         results.append({
             "Actual": "${:0.0f}".format(val),
-            "Orig. Expected": "${:0.2f}".format(oev),
-            "Orig. Ratio": "{:0.3f}".format(odr),
+            "Expected": "${:0.2f}".format(oev),
+            "Ratio": "{:0.3f}".format(odr),
             "Adj. Expected": "${:0.2f}".format(aev),
             "Adj. Ratio": "{:0.3f}".format(adr),
-            "Pct. Chg.": "{:0.1f}%".format(pc * 100),
+            "% Chg.": "{:0.1f}%".format(pc * 100),
+            "Printed": "{0:,.0f}".format(total_tickets),
+            "% Left": "{:0.0f}%".format((extrapolated_total / total_tickets) * 100),
             "Name": "{} ({})".format(name,number)
         })
 
-    header_print("Sorted by best current ratio")
+    header_print("Overall results sorted by best current ratio")
     res_df = pd.DataFrame(results).sort_values("Adj. Ratio", ascending=False)
     print(res_df)
 
