@@ -49,19 +49,17 @@ def main():
         total_tickets = df.values[0][1] * df.values[0][2]  # Calculate total tickets
 
         # Calculate expected values
-        print("\nPrizes and expected value\n=========================")
-
         oev = 0
         original_count = 0
         current_count = 0
 
-        print("Original E[x]\n-------------")
+        print("\nOriginal E[x]\n-------------")
 
         for row in df.values:
             e = row[0] / row[1]
             original_count += row[2]
             current_count += row[3]
-            print("${:,.0f} (1:{:.0f}) -> ${:.2f}".format(row[0],row[1],e))
+            print("${:,.0f} (1:{:,.0f}) -> ${:.2f}".format(row[0],row[1],e))
             oev += e
 
         # Calculate extrapolated number of tickets remaining
@@ -80,7 +78,7 @@ def main():
             if row[3] == 0:
                 print("${:,.0f} (INF) -> ${:.2f}".format(row[0],e))
             else:
-                print("${:,.0f} (1:{:.0f}) -> ${:.2f}".format(row[0],extrapolated_total / row[3],e))
+                print("${:,.0f} (1:{:,.0f}) -> ${:.2f}".format(row[0],extrapolated_total / row[3],e))
 
         # Calculate the adjusted ratio
         adr = aev / val
